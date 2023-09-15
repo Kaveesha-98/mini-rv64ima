@@ -30,7 +30,7 @@
 #endif
 
 #ifndef MINIRV32_RAM_IMAGE_OFFSET
-	#define MINIRV32_RAM_IMAGE_OFFSET  0x80000000
+	#define MINIRV32_RAM_IMAGE_OFFSET  0x80000000UL
 #endif
 
 #ifndef MINIRV32_POSTEXEC
@@ -53,7 +53,8 @@
 	#define MINIRV32_OTHERCSR_READ(...);
 #endif
 
-#ifndef MINIRV32_CUSTOM_MEMORY_BUS
+#ifndef MINIRV32_CUSTOM_MEMORY_BUSz
+	#define MINIRV32_STORE8( ofs, val ) *(uint64_t*)(image + ofs) = val
 	#define MINIRV32_STORE4( ofs, val ) *(uint32_t*)(image + ofs) = val
 	#define MINIRV32_STORE2( ofs, val ) *(uint16_t*)(image + ofs) = val
 	#define MINIRV32_STORE1( ofs, val ) *(uint8_t*)(image + ofs) = val
@@ -70,26 +71,29 @@
 // We're going to try to keep the full processor state to 12 x uint4.
 struct MiniRV32IMAState
 {
-	uint32_t regs[32];
+	uint64_t regs[32];
 
-	uint32_t pc;
-	uint32_t mstatus;
-	uint32_t cyclel;
-	uint32_t cycleh;
+	uint64_t pc;
+	uint64_t mstatus;
+	// uint32_t cyclel;
+	// uint32_t cycleh;
+	uint64_t cycle;
 
-	uint32_t timerl;
-	uint32_t timerh;
-	uint32_t timermatchl;
-	uint32_t timermatchh;
+	// uint32_t timerl;
+	// uint32_t timerh;
+	uint64_t timer;
+	// uint32_t timermatchl;
+	// uint32_t timermatchh;
+	uint64_t timermatch;
 
-	uint32_t mscratch;
-	uint32_t mtvec;
-	uint32_t mie;
-	uint32_t mip;
+	uint64_t mscratch;
+	uint64_t mtvec;
+	uint64_t mie;
+	uint64_t mip;
 
-	uint32_t mepc;
-	uint32_t mtval;
-	uint32_t mcause;
+	uint64_t mepc;
+	uint64_t mtval;
+	uint64_t mcause;
 
 	// Note: only a few bits are used.  (Machine = 3, User = 0)
 	// Bits 0..1 = privilege.
@@ -98,6 +102,7 @@ struct MiniRV32IMAState
 	uint32_t extraflags;
 };
 
+// don't really know what this does - Kaveesha
 #ifndef MINIRV32_STEPPROTO
 MINIRV32_DECORATE int32_t MiniRV32IMAStep( struct MiniRV32IMAState * state, uint8_t * image, uint32_t vProcAddress, uint32_t elapsedUs, int count );
 #endif
@@ -117,12 +122,13 @@ MINIRV32_DECORATE int32_t MiniRV32IMAStep( struct MiniRV32IMAState * state, uint
 MINIRV32_STEPPROTO
 #endif
 {
-	uint32_t new_timer = CSR( timerl ) + elapsedUs;
-	if( new_timer < CSR( timerl ) ) CSR( timerh )++;
-	CSR( timerl ) = new_timer;
+	uint64_t new_timer = CSR( timer ) + elapsedUs;
+	// if( new_timer < CSR( timerl ) ) CSR( timerh )++;
+	CSR( timer ) = new_timer;
 
 	// Handle Timer interrupt.
-	if( ( CSR( timerh ) > CSR( timermatchh ) || ( CSR( timerh ) == CSR( timermatchh ) && CSR( timerl ) > CSR( timermatchl ) ) ) && ( CSR( timermatchh ) || CSR( timermatchl ) ) )
+	// if( ( CSR( timerh ) > CSR( timermatchh ) || ( CSR( timerh ) == CSR( timermatchh ) && CSR( timerl ) > CSR( timermatchl ) ) ) && ( CSR( timermatchh ) || CSR( timermatchl ) ) )
+	if( ( CSR( timer ) > CSR( timermatch ) ) && ( CSR( timermatch ) ) )
 	{
 		CSR( extraflags ) &= ~4; // Clear WFI
 		CSR( mip ) |= 1<<7; //MTIP of MIP // https://stackoverflow.com/a/61916199/2926815  Fire interrupt.
@@ -134,10 +140,10 @@ MINIRV32_STEPPROTO
 	if( CSR( extraflags ) & 4 )
 		return 1;
 
-	uint32_t trap = 0;
-	uint32_t rval = 0;
-	uint32_t pc = CSR( pc );
-	uint32_t cycle = CSR( cyclel );
+	uint64_t trap = 0;
+	uint64_t rval = 0;
+	uint64_t pc = CSR( pc );
+	uint64_t cycle = CSR( cycle );
 
 	if( ( CSR( mip ) & (1<<7) ) && ( CSR( mie ) & (1<<7) /*mtie*/ ) && ( CSR( mstatus ) & 0x8 /*mie*/) )
 	{
