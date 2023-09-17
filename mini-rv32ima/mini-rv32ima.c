@@ -196,7 +196,7 @@ restart:
 	int instrs_per_flip = single_step?1:1024;
 	for( rt = 0; rt < instct+1 || instct < 0; rt += instrs_per_flip )
 	{
-		uint64_t * this_ccount = ((uint64_t*)&core->cyclel);
+		uint64_t * this_ccount = ((uint64_t*)&core->cycle);
 		uint32_t elapsedUs = 0;
 		if( fixed_update )
 			elapsedUs = *this_ccount / time_divisor - lastTime;
@@ -207,14 +207,15 @@ restart:
 		if( single_step )
 			DumpState( core, ram_image);
 
-		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
+		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, 1); // instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
+		printf("finished %016lx\n", core -> pc);
 		switch( ret )
 		{
 			case 0: break;
 			case 1: if( do_sleep ) MiniSleep(); *this_ccount += instrs_per_flip; break;
 			case 3: instct = 0; break;
 			case 0x7777: goto restart;	//syscon code for restart
-			case 0x5555: printf( "POWEROFF@0x%08x%08x\n", core->cycleh, core->cyclel ); return 0; //syscon code for power-off
+			case 0x5555: printf( "POWEROFF@0x%016lx\n", core->cycle ); return 0; //syscon code for power-off
 			default: printf( "Unknown failure\n" ); break;
 		}
 	}
@@ -484,11 +485,11 @@ static int64_t SimpleReadNumberInt( const char * number, int64_t defaultNumber )
 
 static void DumpState( struct MiniRV32IMAState * core, uint8_t * ram_image )
 {
-	uint32_t pc = core->pc;
-	uint32_t pc_offset = pc - MINIRV32_RAM_IMAGE_OFFSET;
+	uint64_t pc = core->pc;
+	uint64_t pc_offset = pc - MINIRV32_RAM_IMAGE_OFFSET;
 	uint32_t ir = 0;
 
-	printf( "PC: %08x ", pc );
+	printf( "PC: %016lx ", pc );
 	if( pc_offset >= 0 && pc_offset < ram_amt - 3 )
 	{
 		ir = *((uint32_t*)(&((uint8_t*)ram_image)[pc_offset]));
@@ -496,11 +497,11 @@ static void DumpState( struct MiniRV32IMAState * core, uint8_t * ram_image )
 	}
 	else
 		printf( "[xxxxxxxxxx] " ); 
-	uint32_t * regs = core->regs;
-	printf( "Z:%08x ra:%08x sp:%08x gp:%08x tp:%08x t0:%08x t1:%08x t2:%08x s0:%08x s1:%08x a0:%08x a1:%08x a2:%08x a3:%08x a4:%08x a5:%08x ",
+	uint64_t * regs = core->regs;
+	printf( "Z:%016lx ra:%016lx sp:%016lx gp:%016lx tp:%016lx t0:%016lx t1:%016lx t2:%016lx s0:%016lx s1:%016lx a0:%016lx a1:%016lx a2:%016lx a3:%016lx a4:%016lx a5:%016lx ",
 		regs[0], regs[1], regs[2], regs[3], regs[4], regs[5], regs[6], regs[7],
 		regs[8], regs[9], regs[10], regs[11], regs[12], regs[13], regs[14], regs[15] );
-	printf( "a6:%08x a7:%08x s2:%08x s3:%08x s4:%08x s5:%08x s6:%08x s7:%08x s8:%08x s9:%08x s10:%08x s11:%08x t3:%08x t4:%08x t5:%08x t6:%08x\n",
+	printf( "a6:%016lx a7:%016lx s2:%016lx s3:%016lx s4:%016lx s5:%016lx s6:%016lx s7:%016lx s8:%016lx s9:%016lx s10:%016lx s11:%016lx t3:%016lx t4:%016lx t5:%016lx t6:%016lx\n",
 		regs[16], regs[17], regs[18], regs[19], regs[20], regs[21], regs[22], regs[23],
 		regs[24], regs[25], regs[26], regs[27], regs[28], regs[29], regs[30], regs[31] );
 }
