@@ -43,6 +43,22 @@ DownloadedImage :
 testdlimage : mini-rv32ima DownloadedImage
 	./mini-rv32ima -f DownloadedImage
 
+riscv-test : riscv-test-run
+	./riscv-test-run -f riscv-tests/images/rv64mi-p-csr
+
+riscv-test-all : riscv-test-run
+	for file in riscv-tests/images/*; do \
+		echo -n "running test `basename "$$file" `: "; \
+		./riscv-test-run -f riscv-tests/images/"`basename "$$file" `"; \
+	done
+	
+
+riscv-test-run : riscv-test-run.c mini-rv32ima.h default64mbdtc.h
+	# for debug
+	gcc -o $@ $< -g -O2 -Wall
+	gcc -o $@.tiny $< -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -fwhole-program -s
+
+
 # For dumping specific binaries and info.
 # SBI is not currently working
 #testsbi : mini-rv32ima

@@ -304,7 +304,7 @@ MINIRV32_STEPPROTO
 	else // No timer interrupt?  Execute a bunch of instructions.
 	for( int icount = 0; icount < count; icount++ )
 	{
-		printf("goes here %016lx %d\n", pc, count);
+		
 		uint32_t ir = 0;
 		rval = 0;
 		cycle++;
@@ -323,6 +323,7 @@ MINIRV32_STEPPROTO
 		else
 		{
 			ir = MINIRV32_LOAD4( ofs_pc );
+			// printf("goes here %016lx %08x %d\n", pc, ir, count);
 			uint32_t rdid = (ir >> 7) & 0x1f;
 
 			switch( ir & 0x7f )
@@ -466,7 +467,7 @@ MINIRV32_STEPPROTO
 				case 0x33: // Op           0b0110011
 				{
 					uint64_t imm = ir >> 20;
-					imm = imm | (( imm & 0x800 )?0xfffff000:0);
+					imm = imm | (( imm & 0x800 )?0xfffffffffffff000:0);
 					uint64_t rs1 = REG((ir >> 15) & 0x1f);
 					uint32_t is_reg = !!( ir & 0x20 );
 					uint64_t rs2 = is_reg ? REG(imm & 0x1f) : imm;
@@ -484,7 +485,7 @@ MINIRV32_STEPPROTO
 							CUSTOM_MULH
 #endif
 							case 4: if( rs2 == 0 ) rval = -1; else rval = ((int64_t)rs1 == INT64_MIN && (int64_t)rs2 == -1) ? rs1 : ((int64_t)rs1 / (int64_t)rs2); break; // DIV
-							case 5: if( rs2 == 0 ) rval = 0xffffffff; else rval = rs1 / rs2; break; // DIVU
+							case 5: if( rs2 == 0 ) rval = 0xffffffffffffffffUL; else rval = rs1 / rs2; break; // DIVU
 							case 6: if( rs2 == 0 ) rval = rs1; else rval = ((int64_t)rs1 == INT64_MIN && (int64_t)rs2 == -1) ? 0 : ((uint64_t)((int64_t)rs1 % (int64_t)rs2)); break; // REM
 							case 7: if( rs2 == 0 ) rval = rs1; else rval = rs1 % rs2; break; // REMU
 						}
@@ -520,7 +521,7 @@ MINIRV32_STEPPROTO
 						{
 							case 0: rval = (int32_t)(( (int32_t) rs1 ) * ( (int32_t) rs2 )); break; // MUL
 							case 4: if( ((int32_t) rs2) == 0 ) rval = -1; else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? ((int32_t)rs1) : ((int32_t)rs1 / (int32_t)rs2); break; // DIV
-							case 5: if( ((uint32_t)rs2) == 0 ) rval = 0xffffffffffffffff; else rval = ((uint32_t)rs1) / ((uint32_t)rs2); break; // DIVU
+							case 5: if( ((uint32_t)rs2) == 0 ) rval = 0xffffffffffffffffUL; else rval = (int32_t)(((uint32_t)rs1) / ((uint32_t)rs2)); break; // DIVU
 							case 6: if( ((int32_t) rs2) == 0 ) rval = ((int32_t)rs1); else rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? 0 : ((int32_t)((uint32_t)((int32_t)rs1 % (int32_t)rs2))); break; // REM
 							case 7: if( ((uint32_t)rs2) == 0 ) rval = ((int32_t)rs1); else rval = (int32_t)(((uint32_t)rs1) % ((uint32_t)rs2)); break; // REMU
 						}
@@ -560,7 +561,7 @@ MINIRV32_STEPPROTO
 						case 0xC00: rval = cycle; break;
 						case 0x344: rval = CSR( mip ); break;
 						case 0x341: rval = CSR( mepc ); break;
-						case 0x300: rval = CSR( mstatus ); break; //mstatus
+						case 0x300: rval = (CSR( mstatus ) | (2UL << 32)); break; //mstatus
 						case 0x342: rval = CSR( mcause ); break;
 						case 0x343: rval = CSR( mtval ); break;
 						case 0xf11: rval = 0xff0ff0ff; break; //mvendorid
@@ -645,7 +646,7 @@ MINIRV32_STEPPROTO
 				case 0x2f: // RV32A (0b00101111)
 				{
 				if (((ir >> 12) & 3) == 2U) {
-				printf("BUt it does amo %08x, %016lx, %016lx\n", (ir>>12)&3, REG((ir >> 15) & 0x1f), MINI_RV32_RAM_SIZE);
+				//printf("BUt it does amo %08x, %016lx, %016lx\n", (ir>>12)&3, REG((ir >> 15) & 0x1f), MINI_RV32_RAM_SIZE);
 					uint64_t rs1 = REG((ir >> 15) & 0x1f);
 					uint64_t rs2 = REG((ir >> 20) & 0x1f);
 					uint32_t irmid = ( ir>>27 ) & 0x1f;
@@ -661,7 +662,7 @@ MINIRV32_STEPPROTO
 					}
 					else
 					{
-						rval = MINIRV32_LOAD4( rs1 );
+						rval = MINIRV32_LOAD4_SIGNED( rs1 );
 
 						// Referenced a little bit of https://github.com/franzflasch/riscv_em/blob/master/src/core/core.c
 						uint32_t dowrite = 1;
@@ -674,9 +675,10 @@ MINIRV32_STEPPROTO
 							case 3:  //SC.W (0b00011) (Make sure we have a slot, and, it's valid)
 								rval = ( CSR( extraflags ) >> 3 != ( rs1 & 0x1fffffffffffffff ) );  // Validate that our reservation slot is OK.
 								dowrite = !rval; // Only write if slot is valid.
+								CSR( extraflags ) = (CSR( extraflags ) & 7);
 								break;
 							case 1: break; //AMOSWAP.W (0b00001)
-							case 0: rs2 += rval; printf("here add\n"); break; //AMOADD.W (0b00000)
+							case 0: rs2 += rval; break; //AMOADD.W (0b00000)
 							case 4: rs2 ^= rval; break; //AMOXOR.W (0b00100)
 							case 12: rs2 &= rval; break; //AMOAND.W (0b01100)
 							case 8: rs2 |= rval; break; //AMOOR.W (0b01000)
@@ -718,6 +720,7 @@ MINIRV32_STEPPROTO
 							case 3:  //SC.W (0b00011) (Make sure we have a slot, and, it's valid)
 								rval = ( CSR( extraflags ) >> 3 != ( rs1 & 0x1fffffffffffffff ) );  // Validate that our reservation slot is OK.
 								dowrite = !rval; // Only write if slot is valid.
+								CSR( extraflags ) = (CSR( extraflags ) & 7);
 								break;
 							case 1: break; //AMOSWAP.W (0b00001)
 							case 0: rs2 += rval; break; //AMOADD.W (0b00000)
