@@ -1,1 +1,9 @@
 *.log
+bintoh*
+mini-rv32ima/riscv-test-run
+mini-rv32ima/riscv-test-run.tiny
+.gitignore
+mini-rv32ima/default64mbdtc.h
+mini-rv32ima/sixtyfourmb.dtb
+mini-rv32ima/mini-rv32ima
+mini-rv32ima/mini-rv32ima.tiny
