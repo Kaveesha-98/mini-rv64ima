@@ -9,7 +9,7 @@
 #include "default64mbdtc.h"
 
 // Just default RAM amount is 64MB.
-uint32_t ram_amt = 64*1024*1024;
+uint32_t ram_amt = 512*1024*1024;
 int fail_on_all_faults = 0;
 
 static int64_t SimpleReadNumberInt( const char * number, int64_t defaultNumber );
@@ -208,7 +208,7 @@ restart:
 			DumpState( core, ram_image);
 
 		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, 1); // instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
-		printf("finished %016lx\n", core -> pc);
+		// printf("finished %016lx\n", core -> pc);
 		switch( ret )
 		{
 			case 0: break;
@@ -317,6 +317,7 @@ static int ReadKBByte()
 
 static void CtrlC()
 {
+	printf("here\n");
 	DumpState( core, ram_image);
 	exit( 0 );
 }

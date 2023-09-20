@@ -101,7 +101,7 @@ struct MiniRV32IMAState
 	// Bits 0..1 = privilege.
 	// Bit 2 = WFI (Wait for interrupt)
 	// Bit 3+ = Load/Store reservation LSBs.
-	uint32_t extraflags;
+	uint64_t extraflags;
 };
 
 /**
@@ -323,7 +323,7 @@ MINIRV32_STEPPROTO
 		else
 		{
 			ir = MINIRV32_LOAD4( ofs_pc );
-			// printf("goes here %016lx %08x %d\n", pc, ir, count);
+			//printf("goes here %016lx %08x %d\n", pc, ir, trap);
 			uint32_t rdid = (ir >> 7) & 0x1f;
 
 			switch( ir & 0x7f )
@@ -340,6 +340,7 @@ MINIRV32_STEPPROTO
 					if( reladdy & 0x00100000 ) reladdy |= 0xffffffffffe00000L; // Sign extension.
 					rval = pc + 4;
 					pc = pc + reladdy - 4;
+					//printf("jalr %016lx %08x %d\n", pc, ir, count);
 					break;
 				}
 				case 0x67: // JALR (0b1100111)
@@ -547,8 +548,8 @@ MINIRV32_STEPPROTO
 					uint32_t microop = ( ir >> 12 ) & 0x7;
 					if( (microop & 3) ) // It's a Zicsr function.
 					{
-						int64_t rs1imm = (ir >> 15) & 0x1f;
-						uint64_t rs1 = REG(rs1imm);
+						uint64_t rs1imm = (ir >> 15) & 0x1f;
+						uint64_t rs1 = REG(rs1imm & 0x1f);
 						uint64_t writeval = rs1;
 
 						// https://raw.githubusercontent.com/riscv/virtual-memory/main/specs/663-Svpbmt.pdf
@@ -633,7 +634,7 @@ MINIRV32_STEPPROTO
 						{
 							switch( csrno )
 							{
-							case 0: trap = ( CSR( extraflags ) & 3) ? (11+1) : (8+1); break; // ECALL; 8 = "Environment call from U-mode"; 11 = "Environment call from M-mode"
+							case 0: trap = ( CSR( extraflags ) & 3) ? (11+1) : (8+1); printf("ECALL at pc: %016lx", pc); break; // ECALL; 8 = "Environment call from U-mode"; 11 = "Environment call from M-mode"
 							case 1:	trap = (3+1); break; // EBREAK 3 = "Breakpoint"
 							default: trap = (2+1); break; // Illegal opcode.
 							}
@@ -742,13 +743,15 @@ MINIRV32_STEPPROTO
 			}
 
 			// If there was a trap, do NOT allow register writeback.
-			if( trap )
+			if( trap ) //printf("TRAP at pc: %016lx extraflags: %016lx", pc, CSR( extraflags ));
 				break;
 
 			if( rdid )
 			{
+				// if (rdid == 4) { printf("At pc:%016lx, writing to tp: %016lx\n", pc, rval); }
 				REGSET( rdid, rval ); // Write back register.
 			}
+			//printf("finished\n");
 		}
 
 		MINIRV32_POSTEXEC( pc, ir, trap );
@@ -759,6 +762,7 @@ MINIRV32_STEPPROTO
 	// Handle traps and interrupts.
 	if( trap )
 	{
+		printf("THere is a trap at pc: %016lx\n", pc);
 		if( trap & (1UL << 63) ) // If prefixed with 1 in MSB, it's an interrupt, not a trap.
 		{
 			SETCSR( mcause, trap );
