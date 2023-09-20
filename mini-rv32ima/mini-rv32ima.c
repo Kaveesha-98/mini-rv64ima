@@ -172,7 +172,7 @@ restart:
 	CaptureKeyboardInput();
 
 	// The core lives at the end of RAM.
-	core = (struct MiniRV32IMAState *)(ram_image + ram_amt - sizeof( struct MiniRV32IMAState ));
+	core = malloc(sizeof(struct MiniRV32IMAState));//(struct MiniRV32IMAState *)(ram_image + ram_amt - sizeof( struct MiniRV32IMAState ));
 	core->pc = MINIRV32_RAM_IMAGE_OFFSET;
 	core->regs[10] = 0x00; //hart ID
 	core->regs[11] = dtb_ptr?(dtb_ptr+MINIRV32_RAM_IMAGE_OFFSET):0; //dtb_pa (Must be valid pointer) (Should be pointer to dtb)
@@ -203,11 +203,13 @@ restart:
 		else
 			elapsedUs = GetTimeMicroseconds()/time_divisor - lastTime;
 		lastTime += elapsedUs;
-
-		if( single_step )
-			DumpState( core, ram_image);
+		uint64_t prev = core -> regs[31];
 
 		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, 1); // instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
+		if( (core -> regs[31] == 0x9fffffa8UL)  ){
+			DumpState( core, ram_image);
+			printf("prev t6: %016lx\n", prev);
+		}
 		// printf("finished %016lx\n", core -> pc);
 		switch( ret )
 		{

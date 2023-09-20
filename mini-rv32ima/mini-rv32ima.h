@@ -325,7 +325,7 @@ MINIRV32_STEPPROTO
 			ir = MINIRV32_LOAD4( ofs_pc );
 			//printf("goes here %016lx %08x %d\n", pc, ir, trap);
 			uint32_t rdid = (ir >> 7) & 0x1f;
-
+			REGSET(0, 0);
 			switch( ir & 0x7f )
 			{
 				case 0x37: // LUI (0b0110111)
@@ -366,8 +366,8 @@ MINIRV32_STEPPROTO
 						case 1: if( rs1 != rs2 ) pc = immm4; break;
 						case 4: if( rs1 < rs2 ) pc = immm4; break;
 						case 5: if( rs1 >= rs2 ) pc = immm4; break; //BGE
-						case 6: if( (uint32_t)rs1 < (uint32_t)rs2 ) pc = immm4; break;   //BLTU
-						case 7: if( (uint32_t)rs1 >= (uint32_t)rs2 ) pc = immm4; break;  //BGEU
+						case 6: if( (uint64_t)rs1 < (uint64_t)rs2 ) pc = immm4; break;   //BLTU
+						case 7: if( (uint64_t)rs1 >= (uint64_t)rs2 ) pc = immm4; break;  //BGEU
 						default: trap = (2+1);
 					}
 					break;
@@ -423,7 +423,7 @@ MINIRV32_STEPPROTO
 					uint64_t addy = ( ( ir >> 7 ) & 0x1f ) | ( ( ir & 0xfe000000 ) >> 20 );
 					if( addy & 0x800 ) addy |= 0xfffffffffffff000L;
 					addy += rs1 - MINIRV32_RAM_IMAGE_OFFSET;
-					rdid = 0;
+					rdid = 0UL;
 
 					if( addy >= MINI_RV32_RAM_SIZE-3 )
 					{
@@ -468,7 +468,7 @@ MINIRV32_STEPPROTO
 				case 0x33: // Op           0b0110011
 				{
 					uint64_t imm = ir >> 20;
-					imm = imm | (( imm & 0x800 )?0xfffffffffffff000:0);
+					imm = imm | (( imm & 0x800 )?0xfffffffffffff000UL:0);
 					uint64_t rs1 = REG((ir >> 15) & 0x1f);
 					uint32_t is_reg = !!( ir & 0x20 );
 					uint64_t rs2 = is_reg ? REG(imm & 0x1f) : imm;
@@ -634,7 +634,7 @@ MINIRV32_STEPPROTO
 						{
 							switch( csrno )
 							{
-							case 0: trap = ( CSR( extraflags ) & 3) ? (11+1) : (8+1); printf("ECALL at pc: %016lx", pc); break; // ECALL; 8 = "Environment call from U-mode"; 11 = "Environment call from M-mode"
+							case 0: trap = ( CSR( extraflags ) & 3) ? (11+1) : (8+1); break; // ECALL; 8 = "Environment call from U-mode"; 11 = "Environment call from M-mode"
 							case 1:	trap = (3+1); break; // EBREAK 3 = "Breakpoint"
 							default: trap = (2+1); break; // Illegal opcode.
 							}
@@ -737,14 +737,18 @@ MINIRV32_STEPPROTO
 						if( dowrite ) MINIRV32_STORE8( rs1, rs2 );
 					}
 					break;
-				} }
+				} 
+				break;
+				}
 				
-				default: trap = (2+1); // Fault: Invalid opcode.
+				//default: printf("Invald instruction\n"); trap = 0;//(2+1); // Fault: Invalid opcode.
 			}
 
 			// If there was a trap, do NOT allow register writeback.
-			if( trap ) //printf("TRAP at pc: %016lx extraflags: %016lx", pc, CSR( extraflags ));
+			if( trap ){ //printf("TRAP at pc: %016lx extraflags: %016lx", pc, CSR( extraflags ));
+				
 				break;
+			}
 
 			if( rdid )
 			{
@@ -762,7 +766,15 @@ MINIRV32_STEPPROTO
 	// Handle traps and interrupts.
 	if( trap )
 	{
-		printf("THere is a trap at pc: %016lx\n", pc);
+		/* printf("THere is a trap at pc: %016lx\n", pc);
+		uint64_t * regs = state->regs;
+				printf( "Z:%016lx ra:%016lx sp:%016lx gp:%016lx tp:%016lx t0:%016lx t1:%016lx t2:%016lx s0:%016lx s1:%016lx a0:%016lx a1:%016lx a2:%016lx a3:%016lx a4:%016lx a5:%016lx ",
+					regs[0], regs[1], regs[2], regs[3], regs[4], regs[5], regs[6], regs[7],
+					regs[8], regs[9], regs[10], regs[11], regs[12], regs[13], regs[14], regs[15] );
+				printf( "a6:%016lx a7:%016lx s2:%016lx s3:%016lx s4:%016lx s5:%016lx s6:%016lx s7:%016lx s8:%016lx s9:%016lx s10:%016lx s11:%016lx t3:%016lx t4:%016lx t5:%016lx t6:%016lx\n",
+					regs[16], regs[17], regs[18], regs[19], regs[20], regs[21], regs[22], regs[23],
+					regs[24], regs[25], regs[26], regs[27], regs[28], regs[29], regs[30], regs[31] );
+	 */
 		if( trap & (1UL << 63) ) // If prefixed with 1 in MSB, it's an interrupt, not a trap.
 		{
 			SETCSR( mcause, trap );
