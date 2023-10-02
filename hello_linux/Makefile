@@ -1,11 +1,11 @@
 all : hello_linux
 
-PREFIX:=../buildroot/output/host/bin/riscv32-buildroot-linux-uclibc-
+PREFIX:=../../buildroot/output/host/bin/riscv64-buildroot-linux-uclibc-
 CC:=$(PREFIX)gcc
 OBJDUMP:=$(PREFIX)objdump
 
 # Note:  regymm says to do -fPIE -pie -static, instead of -fPIC
-CFLAGS:=-mabi=ilp32 -fPIE -pie -static -march=rv32ima -Os -s -g
+CFLAGS:=-fPIE -pie -static -march=rv64g -Os -s -g
 LDFLAGS:=-Wl,-elf2flt=-r
 
 C_S+=hello_linux.c

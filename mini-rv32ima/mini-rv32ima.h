@@ -396,6 +396,7 @@ MINIRV32_STEPPROTO
 						else
 						{
 							trap = (5+1);
+							printf("Access fault at %016lx at instruction %08x at pc %016lx\n", rsval, ir, pc);
 							rval = rsval;
 						}
 					}
@@ -447,6 +448,8 @@ MINIRV32_STEPPROTO
 						else
 						{
 							trap = (7+1); // Store access fault.
+							printf("Access fault at %016lx at instruction %08x at pc %016lx\n", addy, ir, pc);
+							
 							rval = addy;
 						}
 					}

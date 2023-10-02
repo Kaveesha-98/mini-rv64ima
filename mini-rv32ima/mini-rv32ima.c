@@ -174,6 +174,7 @@ restart:
 	// The core lives at the end of RAM.
 	core = malloc(sizeof(struct MiniRV32IMAState));//(struct MiniRV32IMAState *)(ram_image + ram_amt - sizeof( struct MiniRV32IMAState ));
 	core->pc = MINIRV32_RAM_IMAGE_OFFSET;
+	core->mip = 0UL;
 	core->regs[10] = 0x00; //hart ID
 	core->regs[11] = dtb_ptr?(dtb_ptr+MINIRV32_RAM_IMAGE_OFFSET):0; //dtb_pa (Must be valid pointer) (Should be pointer to dtb)
 	core->extraflags |= 3; // Machine-mode.
@@ -205,7 +206,7 @@ restart:
 		lastTime += elapsedUs;
 		uint64_t prev = core -> regs[31];
 
-		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, 1); // instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
+		int ret = MiniRV32IMAStep( core, ram_image, 0, elapsedUs, instrs_per_flip ); // Execute upto 1024 cycles before breaking out.
 		if( (core -> regs[31] == 0x9fffffa8UL)  ){
 			DumpState( core, ram_image);
 			printf("prev t6: %016lx\n", prev);
